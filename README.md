@@ -17,13 +17,16 @@ We need to have cloned 3 repos:
 Note: Each channel will have its own deployment repo. For example below is the deployment repo for Customer Channel
 3. [deployment-customer-channel](https://github.tabcorp.com.au/tabdigital/deployment-customer-channel)
 
-Now lets write a simple template in yaml format
+Now lets write a simple template in yaml format:
+
+### Template 
+
 
 ```yaml
 
-template: 'ecs'
-description: 'Deploys trawl containerised service to aws ecs'
-appName: 'service-wift-trawl'
+template: 'ecs-alb'
+description: ' Deployment template for dockerized recommendation service'
+appName: 'api-service-account'
 appConfigPrefix: 'TAB'
 tags:
   costCentre: '5607'
@@ -31,35 +34,78 @@ tags:
   owner: 'TabTechDigitalPlatformTribe@tabcorp.com.au'
 ecsTask:
   cpu: 1024
-  memory: 1024
-  port: 8080
+  memory: 2048
+  port: 8183
   healthCheck:
     internval: '5s'
     timeout: '3s'
-    route: '/v1/wift-service/status/details'
+    route: '/v1/account-service/status'
   ulimit:
     hard: 16384
     soft: 16384
   autoScaling:
     targetValue: 50
-  role: service-wift-trawl-task-role
-  command: [ "/bin/sh", "-c", "cd /app && npm start" ]
+  appKeys: true
+  role: UAT-Yarra-recommendation-RecommendationServiceTask-NPXKAAHE5WJY
+  command: [ "/bin/sh", "-c", "cd /app && ./bin/start" ]
+alb:
+  name: 'test' # name of alb. not mandatory
+  default: true # use shared alb ? default value is false
+  dns: true # dns entry required or not?
+  public: false # if only creating a new alb
+  hostedZone: private # mandatory field if there is dns to be inserted in r53
+  https: false 
+  securityGroupRules:
+    ports:
+      inbound:
+        tcp:
+          80: ['172.30.128.0/22', '172.30.136.0/22']
+          443: ['172.30.128.0/22', '172.30.136.0/22']
+      outbound:
+        tcp:
+          32000-61000: ['172.30.136.0/22']
 ```
 
-However, they can accept all of the following additional keys per the [documentation](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html):
+### Template Parameter
+```yaml
+defaultCapacity: &defaultCapacity
+  MinCapacity: 1
+  MaxCapacity: 2
+
+default: &default
+  ContainerImage: "{{env DOCKER_IMAGE}}"
+  ECSClusterStack: "{{env ECS_CLUSTER_STACK}}"
+  ECSHealthCheckLambda: eng-boostraping-ecs-service-healthc-LambdaFunction-1Q19NCU548QD5
+
+
+UAT-Zambeze:
+  <<: *default
+  <<: *defaultCapacity
+  Environment: UAT-Zambeze
+  VpcId: 'vpc-0c7e32f64f5df48c5'
+  RulePriority: 1065
+  HostDnsRecord: 'zambeze-api-service-account.tabinternal.com.au'
+  TaskRole: arn:aws:iam::093914002691:role/service-account-task-role
+  ConfigAppEnv: 'TAB-UAT-Zambeze'
+  AppSecretBucket: "093914002691-zambeze-secret"
+```
+
+
+Below is description and purpose of above fields mentioned in template.
+Note: Please note that currently we are starting with aws resources and attributes which are commonly used in Tab. However we are not limited to these, and we will develop new resources and attributes based on demand.
+If you need any new template / resource / attributes added, please free to contact TabTechDigitalPlatformTribe@mytabcorp.onmicrosoft.com team
+
+# Template
 
 ```ruby
-Parameter('foo') do
-  Description           'This is a sample parameter definition'
-  Type                  'String'
-  Default               'foo'
-  NoEcho                true
-  AllowedValues         %w(foo bar)
-  AllowedPattern        '/pattern/'
-  MaxLength             5
-  MinLength             3
-  MaxValue              10
-  MinValue              2
-  ConstraintDescription 'The error message printed when a parameter outside the constraints is given'
+          
+  template            'This is the template pattern which the service will use to deploy itself. Eg. /ecs/, /ecs-alb/, /ec2/,'
+  description         'Description to be added in the clouformation template'
+  appName             'App name to be used in deployment'
+  appConfigPrefix     'Currently we are using prefix in Tab for config for different environment'
+  tags                'It is a sub-section which holds extra tags to be inserted in each resource'
+  ecsTask             'This is a sub-section which houses different attributes of ecs-Task Defintion in AWS ECS deployment'
+  alb                 'This section is only required if service needs a load balancer
+  
 end
 ```
