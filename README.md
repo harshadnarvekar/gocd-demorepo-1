@@ -10,40 +10,56 @@ The cfndsl-templates library allows us to write eqivalent templates in a more fr
 
 ## Getting Started
 
-ruby version > 2.3.0 is required to run cfndsl, you should look at using rbenv example for installing with rbenv
+We need to have cloned 3 repos:
+1. [cfndsl-templates](https://github.tabcorp.com.au/TabDigital/cfndsl-templates/tree/beta)
+2. [deployment-libraries](https://github.tabcorp.com.au/TabDigital/deployment-libraries/tree/v3)
 
-    rbenv exec gem install cfndsl
+Note: Each channel will have its own deployment repo. For example below is the deployment repo for Customer Channel
+3. [deployment-customer-channel](https://github.tabcorp.com.au/tabdigital/deployment-customer-channel)
 
-Example for doing it system wide Ruby
+Now lets write a simple template in yaml format
 
-    sudo gem install cfndsl
+```yaml
 
-Update the the cloudformation specification to the latest version.
+template: 'ecs'
+description: 'Deploys trawl containerised service to aws ecs'
+appName: 'service-wift-trawl'
+appConfigPrefix: 'TAB'
+tags:
+  costCentre: '5607'
+  schedule: '24X7'
+  owner: 'TabTechDigitalPlatformTribe@tabcorp.com.au'
+ecsTask:
+  cpu: 1024
+  memory: 1024
+  port: 8080
+  healthCheck:
+    internval: '5s'
+    timeout: '3s'
+    route: '/v1/wift-service/status/details'
+  ulimit:
+    hard: 16384
+    soft: 16384
+  autoScaling:
+    targetValue: 50
+  role: service-wift-trawl-task-role
+  command: [ "/bin/sh", "-c", "cd /app && npm start" ]
+```
 
-    cfndsl -u
-
-or update to a specific version
-
-    cfndsl -u 2.21.0
-
-Now write a template in the dsl
+However, they can accept all of the following additional keys per the [documentation](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html):
 
 ```ruby
-
-CloudFormation {
-  Description "Test"
-
-  Parameter("One") {
-    String
-    Default "Test"
-	MaxLength 15
-  }
-
-  Output(:One,FnBase64( Ref("One")))
-
-  EC2_Instance(:MyInstance) {
-    ImageId "ami-12345678"
-  }
-
-}
+Parameter('foo') do
+  Description           'This is a sample parameter definition'
+  Type                  'String'
+  Default               'foo'
+  NoEcho                true
+  AllowedValues         %w(foo bar)
+  AllowedPattern        '/pattern/'
+  MaxLength             5
+  MinLength             3
+  MaxValue              10
+  MinValue              2
+  ConstraintDescription 'The error message printed when a parameter outside the constraints is given'
+end
 ```
